@@ -2,8 +2,10 @@ package com.github.zeroqli.ticketmasta.ui
 
 import com.github.zeroqli.ticketmasta.MyBundle
 import com.github.zeroqli.ticketmasta.model.Ticket
+import com.github.zeroqli.ticketmasta.services.AgentLauncher
 import com.github.zeroqli.ticketmasta.services.AiService
 import com.github.zeroqli.ticketmasta.services.IssueService
+import com.github.zeroqli.ticketmasta.services.normalizeBasePath
 import com.github.zeroqli.ticketmasta.settings.TicketMastaSettings
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
@@ -20,7 +22,6 @@ import com.intellij.util.ui.JBUI
 import java.awt.BorderLayout
 import java.awt.FlowLayout
 import java.nio.file.Files
-import java.nio.file.Path
 import javax.swing.BorderFactory
 import javax.swing.JButton
 import javax.swing.JComponent
@@ -39,14 +40,12 @@ class TicketMastaPanel(private val project: Project) : Disposable {
     private val refreshButton = JButton(MyBundle["refresh"])
     private val scaffoldButton = JButton(MyBundle["scaffoldAi"])
     private val sendButton = JButton(MyBundle["sendToAi"])
-    private val modelLabel = JBLabel()
     private val overview = MarkdownPreview()
 
     init {
         issuesCombo.addItem(MyBundle["issues.placeholder"])
         issuesCombo.addActionListener { showSelectedIssue() }
         refreshButton.addActionListener { refreshIssues(showErrors = true) }
-        modelLabel.text = MyBundle["send.modelLabel", TicketMastaSettings.getInstance().state.aiModel]
         refreshIssues(showErrors = false)
     }
 
@@ -102,7 +101,6 @@ class TicketMastaPanel(private val project: Project) : Disposable {
     }
 
     private fun createAiBar(): JComponent = JBPanel<JBPanel<*>>(BorderLayout(8, 0)).apply {
-        add(modelLabel, BorderLayout.CENTER)
         add(
             JBPanel<JBPanel<*>>(FlowLayout(FlowLayout.RIGHT, 8, 0)).apply {
                 add(JButton(MyBundle["save"]).apply {
@@ -200,22 +198,33 @@ class TicketMastaPanel(private val project: Project) : Disposable {
     }
 
     private fun saveTodoFile() {
+        if (writeTodoFile(editor.getMarkdown())) {
+            Messages.showInfoMessage(
+                project,
+                MyBundle["save.success.message", TODO_FILE_NAME],
+                MyBundle["save.success.title"],
+            )
+        }
+    }
+
+    private fun writeTodoFile(markdown: String): Boolean {
         val basePath = project.basePath
         if (basePath == null) {
             Messages.showErrorDialog(project, MyBundle["save.error.message"], MyBundle["save.error.title"])
-            return
+            return false
         }
-        val target = Path.of(basePath.replace('/', '\\'), TODO_FILE_NAME)
-        try {
-            Files.writeString(target, editor.getMarkdown())
+        val target = normalizeBasePath(basePath).resolve(TODO_FILE_NAME)
+        return try {
+            Files.writeString(target, markdown)
             LocalFileSystem.getInstance().refreshAndFindFileByNioFile(target)
-            Messages.showInfoMessage(project, MyBundle["save.success.message", TODO_FILE_NAME], MyBundle["save.success.title"])
+            true
         } catch (e: Exception) {
             Messages.showErrorDialog(
                 project,
-                MyBundle["save.error.io", e.message.orEmpty()],
+                MyBundle["save.error.io", TODO_FILE_NAME, e.message.orEmpty()],
                 MyBundle["save.error.title"],
             )
+            false
         }
     }
 
@@ -230,27 +239,24 @@ class TicketMastaPanel(private val project: Project) : Disposable {
             Messages.showErrorDialog(project, MyBundle["send.error.noContent"], MyBundle["send.error.title"])
             return
         }
-        sendButton.isEnabled = false
-        editor.setMarkdown("*${MyBundle["send.progress"]}*")
+        if (!writeTodoFile(markdown)) return
 
-        ApplicationManager.getApplication().executeOnPooledThread {
-            val result = runCatching { AiService.respond(ticket, markdown) }
-            ApplicationManager.getApplication().invokeLater {
-                sendButton.isEnabled = true
-                result.onSuccess { response ->
-                    editor.setMarkdown(
-                        markdown.trimEnd() +
-                            "\n\n---\n\n## " + MyBundle["send.responseHeading"] + "\n\n" + response.trim(),
-                    )
-                }.onFailure { error ->
-                    editor.setMarkdown(markdown)
-                    Messages.showErrorDialog(
-                        project,
-                        error.message.orEmpty(),
-                        MyBundle["send.error.title"],
-                    )
-                }
-            }
+        if (!AgentLauncher.isOpencodeAvailable()) {
+            Messages.showErrorDialog(project, MyBundle["send.error.agentMissing"], MyBundle["send.error.title"])
+            return
+        }
+
+        val state = TicketMastaSettings.getInstance().state
+        val command = AgentLauncher.buildCommand(state, ticket, TODO_FILE_NAME, state.githubRepo)
+        AgentLauncher.logCommand(command)
+        try {
+            AgentLauncher.launch(project, command, "#${ticket.number} ${ticket.title}")
+        } catch (e: Exception) {
+            Messages.showErrorDialog(
+                project,
+                MyBundle["send.error.launch", e.message.orEmpty()],
+                MyBundle["send.error.title"],
+            )
         }
     }
 

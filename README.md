@@ -15,8 +15,8 @@ issues without leaving the IDE.
 - **Vditor editor** — an embedded Markdown editor for your working notes.
 - **Scaffold AI** — diagnoses the selected issue against a digest of your codebase and drafts a
   `TODO.md` with an actionable task list.
-- **Send to AI** — forwards your draft to the AI for feedback; the reply is appended below your
-  note so the original stays intact.
+- **Send to AI** — saves the editor to `TODO.md` and launches an [opencode](https://opencode.ai) agent
+  session in the built-in Terminal, asking it to work through the checklist and resolve the selected issue.
 - **Save** — writes the editor content to `TODO.md` in the project root.
 
 ## Installation
@@ -42,8 +42,31 @@ Open <kbd>Settings/Preferences</kbd> > <kbd>Tools</kbd> > <kbd>TicketMasta</kbd>
 | AI base URL | Auto-filled from the provider (`https://api.openai.com/v1` / `https://openrouter.ai/api/v1`) |
 | AI API key | Key for the chosen provider |
 | AI model | Model identifier for the chosen provider |
+| Agent command | Command template run in the built-in Terminal by **Send to AI**; placeholders `{prompt}`, `{file}`, `{number}`, `{title}`, `{repo}` |
 
 Use **Test connection** to verify the repository and token before you start.
+
+### Send to AI
+
+**Send to AI** writes the editor to `TODO.md` in the project root and runs the **Agent command** in a
+new built-in Terminal tab. The default command is:
+
+```shell
+opencode run --file TODO.md --title "{title}" "{prompt}"
+```
+
+so the [OpenCode CLI](https://opencode.ai) must be on your `PATH` and authenticated
+(`opencode auth login`).
+
+### Prompt files
+
+Prompts are plain Markdown files stored globally under the IDE config directory, so you can edit them
+freely (use the **Open** / **Open prompts folder** buttons in Settings):
+
+| File | Used by |
+| --- | --- |
+| `<IDE config>/ticketmasta/prompts/scaffold.md` | **Scaffold AI** system prompt |
+| `<IDE config>/ticketmasta/prompts/agent.md` | **Send to AI** prompt; supports `{file}`, `{number}`, `{title}`, `{repo}` |
 
 ## Development
 

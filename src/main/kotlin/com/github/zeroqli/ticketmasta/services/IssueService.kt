@@ -47,7 +47,7 @@ class IssueService(private val project: Project) {
 
     private fun detectRepo(): String? {
         val base = project.basePath ?: return null
-        val gitDir = resolveGitDir(Path.of(base)) ?: return null
+        val gitDir = resolveGitDir(normalizeBasePath(base)) ?: return null
         val config = gitDir.resolve("config")
         if (!Files.isRegularFile(config)) return null
         val url = ORIGIN_URL.findAll(Files.readString(config)).firstOrNull()?.groupValues?.get(1)

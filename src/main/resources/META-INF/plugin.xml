@@ -9,13 +9,14 @@
         <p>It adds a right-side tool window that lists your repository's open GitHub issues (private
         repositories supported via a personal access token), renders a selected issue with its
         overview, and gives you a Markdown editor where <b>Scaffold AI</b> diagnoses the issue against
-        your codebase and drafts a <code>TODO.md</code> implementation plan you can refine with
-        <b>Send to AI</b> and save to the project root. AI provider (OpenAI or OpenRouter), model,
-        and credentials are configured in <i>Settings > Tools > TicketMasta</i>.</p>
+        your codebase and drafts a <code>TODO.md</code> implementation plan you can save to the project
+        root or hand to an external agent (opencode) via <b>Send to AI</b>. AI provider (OpenAI or
+        OpenRouter), model, and credentials are configured in <i>Settings > Tools > TicketMasta</i>.</p>
     ]]></description>
 
     <depends>com.intellij.modules.platform</depends>
     <depends>org.intellij.plugins.markdown</depends>
+    <depends>org.jetbrains.plugins.terminal</depends>
 
     <resource-bundle>messages.MyBundle</resource-bundle>
 

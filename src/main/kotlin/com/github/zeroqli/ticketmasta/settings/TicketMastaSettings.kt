@@ -15,6 +15,7 @@ class TicketMastaSettings : PersistentStateComponent<TicketMastaSettings.State> 
         var aiProvider: String = PROVIDER_OPENROUTER,
         var aiBaseUrl: String = BASE_URL_OPENROUTER,
         var aiModel: String = "openai/gpt-4o-mini",
+        var agentCommand: String = DEFAULT_AGENT_COMMAND,
     )
 
     private var state = State()
@@ -30,6 +31,7 @@ class TicketMastaSettings : PersistentStateComponent<TicketMastaSettings.State> 
         const val PROVIDER_OPENROUTER = "openrouter"
         const val BASE_URL_OPENAI = "https://api.openai.com/v1"
         const val BASE_URL_OPENROUTER = "https://openrouter.ai/api/v1"
+        const val DEFAULT_AGENT_COMMAND = "opencode run --file TODO.md --title \"{title}\" \"{prompt}\""
 
         fun getInstance(): TicketMastaSettings =
             ApplicationManager.getApplication().getService(TicketMastaSettings::class.java)

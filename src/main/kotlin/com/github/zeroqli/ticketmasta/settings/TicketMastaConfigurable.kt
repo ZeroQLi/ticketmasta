@@ -2,6 +2,7 @@ package com.github.zeroqli.ticketmasta.settings
 
 import com.github.zeroqli.ticketmasta.MyBundle
 import com.github.zeroqli.ticketmasta.services.GitHubConnectionTest
+import com.github.zeroqli.ticketmasta.services.PromptStore
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.options.Configurable
 import com.intellij.openapi.ui.ComboBox
@@ -27,6 +28,7 @@ class TicketMastaConfigurable : Configurable {
     private val aiBaseUrlField = JBTextField()
     private val aiApiKeyField = JBPasswordField()
     private val aiModelCombo = ComboBox<String>()
+    private val agentCommandField = JBTextField()
 
     private var githubTokenCache = ""
     private var aiKeyCache = ""
@@ -45,6 +47,28 @@ class TicketMastaConfigurable : Configurable {
         .addLabeledComponent(JBLabel(MyBundle["settings.aiBaseUrl"]), aiBaseUrlField)
         .addLabeledComponent(JBLabel(MyBundle["settings.aiApiKey"]), aiApiKeyField)
         .addLabeledComponent(JBLabel(MyBundle["settings.aiModel"]), aiModelCombo)
+        .addSeparator()
+        .addLabeledComponent(JBLabel(MyBundle["settings.agentCommand"]), agentCommandField)
+        .addComponent(JBLabel(MyBundle["settings.agentCommand.hint"]))
+        .addSeparator()
+        .addComponent(JBLabel(MyBundle["settings.prompts"]))
+        .addLabeledComponent(
+            JBLabel(MyBundle["settings.prompts.scaffold"]),
+            JButton(MyBundle["settings.prompts.open"]).apply {
+                addActionListener { PromptStore.openFile(PromptStore.scaffoldFilePath()) }
+            },
+        )
+        .addLabeledComponent(
+            JBLabel(MyBundle["settings.prompts.agent"]),
+            JButton(MyBundle["settings.prompts.open"]).apply {
+                addActionListener { PromptStore.openFile(PromptStore.agentFilePath()) }
+            },
+        )
+        .addComponent(
+            JButton(MyBundle["settings.prompts.openFolder"]).apply {
+                addActionListener { PromptStore.openFolder() }
+            },
+        )
         .addComponentFillVertically(JBPanel<JBPanel<*>>(), 0)
         .panel
 
@@ -72,7 +96,8 @@ class TicketMastaConfigurable : Configurable {
             aiBaseUrlField.text.trim() != state.aiBaseUrl ||
             selectedModel() != state.aiModel ||
             String(githubTokenField.password) != githubTokenCache ||
-            String(aiApiKeyField.password) != aiKeyCache
+            String(aiApiKeyField.password) != aiKeyCache ||
+            agentCommandField.text.trim() != state.agentCommand
     }
 
     override fun apply() {
@@ -81,6 +106,7 @@ class TicketMastaConfigurable : Configurable {
         state.aiProvider = selectedProvider()
         state.aiBaseUrl = aiBaseUrlField.text.trim()
         state.aiModel = selectedModel()
+        state.agentCommand = agentCommandField.text.trim()
 
         val githubToken = String(githubTokenField.password)
         val aiKey = String(aiApiKeyField.password)
@@ -98,6 +124,7 @@ class TicketMastaConfigurable : Configurable {
         aiBaseUrlField.text = state.aiBaseUrl
         refreshModels(state.aiProvider, state.aiModel)
         aiApiKeyField.text = aiKeyCache
+        agentCommandField.text = state.agentCommand
     }
 
     private fun loadSecrets() {

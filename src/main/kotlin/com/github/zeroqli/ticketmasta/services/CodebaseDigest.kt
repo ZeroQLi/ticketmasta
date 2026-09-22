@@ -31,7 +31,7 @@ internal object CodebaseDigest {
 
     fun digest(project: Project): String {
         val base = project.basePath ?: return "Repository contents are unavailable."
-        val root = Path.of(base)
+        val root = normalizeBasePath(base)
         if (!Files.isDirectory(root)) return "Repository contents are unavailable."
 
         val files = collectFiles(root)

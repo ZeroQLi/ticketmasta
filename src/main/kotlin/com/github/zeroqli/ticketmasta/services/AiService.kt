@@ -28,7 +28,7 @@ object AiService {
             model = settings.aiModel,
             apiKey = apiKey,
             messages = listOf(
-                Message("system", SCAFFOLD_SYSTEM_PROMPT),
+                Message("system", PromptStore.scaffoldPrompt()),
                 Message("user", buildString {
                     appendLine(issueHeader(ticket))
                     appendLine("## Codebase digest")
@@ -58,29 +58,6 @@ object AiService {
         }
         appendLine("Body:")
         append(ticket.body)
-    }
-
-    fun respond(ticket: Ticket, markdown: String): String {
-        val settings = TicketMastaSettings.getInstance().state
-        val apiKey = TicketMastaSecrets.getAiApiKey()
-        val response = chat(
-            baseUrl = settings.aiBaseUrl,
-            model = settings.aiModel,
-            apiKey = apiKey,
-            messages = listOf(
-                Message("system", RESPOND_SYSTEM_PROMPT),
-                Message("user", buildString {
-                    appendLine(issueHeader(ticket))
-                    appendLine()
-                    appendLine("## Note to respond to")
-                    append(markdown)
-                }),
-            ),
-        )
-        if (response.isBlank()) {
-            throw IllegalStateException("AI returned an empty response.")
-        }
-        return stripCodeFence(response.trim())
     }
 
     fun chat(baseUrl: String, model: String, apiKey: String, messages: List<Message>): String {
@@ -118,23 +95,4 @@ object AiService {
             connection.disconnect()
         }
     }
-
-    private val SCAFFOLD_SYSTEM_PROMPT = """
-        You are a senior software engineer working inside an IDE plugin. You are given a GitHub
-        issue and a digest of the repository (file tree plus excerpts of key files). Produce a
-        Markdown document that:
-        1. Gives a short diagnosis of the issue: what it is about, the likely root cause, and the
-           parts of the codebase involved (reference concrete files from the digest when possible).
-        2. Ends with an ordered, actionable implementation plan written as GitHub task-list items
-           (lines starting with "- [ ]"), each describing one concrete change.
-        Output ONLY the Markdown document. Do not wrap it in a code fence. Do not add commentary.
-    """.trimIndent()
-
-    private val RESPOND_SYSTEM_PROMPT = """
-        You are a senior software engineer. You are given a GitHub issue and a note (TODO.md
-        draft) written about it. Respond to the note as a colleague would: answer its questions,
-        give feedback on its diagnosis and task list, point out risks, and suggest what to do
-        next. Do NOT rewrite the whole note. Write a concise, focused Markdown reply.
-        Output ONLY the response text. Do not wrap it in a code fence. Do not add commentary.
-    """.trimIndent()
 }
