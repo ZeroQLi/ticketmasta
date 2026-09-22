@@ -4,16 +4,23 @@
     <name>ticketmasta</name>
     <vendor>zeroqli</vendor>
     <description><![CDATA[
-        <p><b>ticketmasta</b> is a repository that provides a pure template to make it easier to create a new plugin project.</p>
-        <p>The main goal of this template is to speed up the setup phase of plugin development for both new and experienced developers by preconfiguring the project scaffold and CI, linking to the proper documentation pages, and keeping everything organized.</p>
+        <p><b>ticketmasta</b> is a coding plugin that lets you work on your project's GitHub issues
+        without leaving the IDE.</p>
+        <p>It adds a right-side tool window that lists your repository's open GitHub issues (private
+        repositories supported via a personal access token), renders a selected issue with its
+        overview, and gives you a Markdown editor where <b>Scaffold AI</b> diagnoses the issue against
+        your codebase and drafts a <code>TODO.md</code> implementation plan you can refine with
+        <b>Send to AI</b> and save to the project root. AI provider (OpenAI or OpenRouter), model,
+        and credentials are configured in <i>Settings > Tools > TicketMasta</i>.</p>
     ]]></description>
 
     <depends>com.intellij.modules.platform</depends>
+    <depends>org.intellij.plugins.markdown</depends>
 
     <resource-bundle>messages.MyBundle</resource-bundle>
 
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow factoryClass="com.github.zeroqli.ticketmasta.toolWindow.MyToolWindowFactory" id="MyToolWindow"/>
-        <postStartupActivity implementation="com.github.zeroqli.ticketmasta.startup.MyProjectActivity" />
+        <toolWindow factoryClass="com.github.zeroqli.ticketmasta.toolWindow.TicketMastaToolWindowFactory" id="TicketMasta" anchor="right"/>
+        <applicationConfigurable parentId="tools" instance="com.github.zeroqli.ticketmasta.settings.TicketMastaConfigurable" id="com.github.zeroqli.ticketmasta.settings" displayName="TicketMasta"/>
     </extensions>
 </idea-plugin>

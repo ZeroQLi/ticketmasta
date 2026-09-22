@@ -1,0 +1,260 @@
+package com.github.zeroqli.ticketmasta.ui
+
+import com.github.zeroqli.ticketmasta.MyBundle
+import com.github.zeroqli.ticketmasta.model.Ticket
+import com.github.zeroqli.ticketmasta.services.AiService
+import com.github.zeroqli.ticketmasta.services.IssueService
+import com.github.zeroqli.ticketmasta.settings.TicketMastaSettings
+import com.intellij.openapi.Disposable
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.components.service
+import com.intellij.openapi.project.Project
+import com.intellij.openapi.ui.ComboBox
+import com.intellij.openapi.ui.Messages
+import com.intellij.openapi.vfs.LocalFileSystem
+import com.intellij.ui.JBColor
+import com.intellij.ui.components.JBLabel
+import com.intellij.ui.components.JBPanel
+import com.intellij.ui.components.JBScrollPane
+import com.intellij.util.ui.JBUI
+import java.awt.BorderLayout
+import java.awt.FlowLayout
+import java.nio.file.Files
+import java.nio.file.Path
+import javax.swing.BorderFactory
+import javax.swing.JButton
+import javax.swing.JComponent
+import javax.swing.JSplitPane
+
+private val OVERVIEW_BORDER_COLOR = JBColor(0xC0392B, 0xE06C75)
+private val EDITOR_BORDER_COLOR = JBColor(0x2F6FD0, 0x6EB0FF)
+private const val TODO_FILE_NAME = "TODO.md"
+
+class TicketMastaPanel(private val project: Project) : Disposable {
+
+    private val editor = VditorEditor()
+    private val issueService = project.service<IssueService>()
+
+    private val issuesCombo = ComboBox<Any>()
+    private val refreshButton = JButton(MyBundle["refresh"])
+    private val scaffoldButton = JButton(MyBundle["scaffoldAi"])
+    private val sendButton = JButton(MyBundle["sendToAi"])
+    private val modelLabel = JBLabel()
+    private val overview = MarkdownPreview()
+
+    init {
+        issuesCombo.addItem(MyBundle["issues.placeholder"])
+        issuesCombo.addActionListener { showSelectedIssue() }
+        refreshButton.addActionListener { refreshIssues(showErrors = true) }
+        modelLabel.text = MyBundle["send.modelLabel", TicketMastaSettings.getInstance().state.aiModel]
+        refreshIssues(showErrors = false)
+    }
+
+    fun getContent(): JComponent = JBPanel<JBPanel<*>>(BorderLayout(0, 8)).apply {
+        border = JBUI.Borders.empty(8)
+
+        add(createIssuesBar(), BorderLayout.NORTH)
+        add(createCenter(), BorderLayout.CENTER)
+        add(createAiBar(), BorderLayout.SOUTH)
+    }
+
+    private fun createIssuesBar(): JComponent = JBPanel<JBPanel<*>>(BorderLayout(8, 0)).apply {
+        add(JBLabel(MyBundle["issues.label"]), BorderLayout.WEST)
+        add(issuesCombo, BorderLayout.CENTER)
+        add(refreshButton, BorderLayout.EAST)
+    }
+
+    private fun createCenter(): JComponent = JSplitPane(
+        JSplitPane.VERTICAL_SPLIT,
+        createIssuesOverview(),
+        createEditor(),
+    ).apply {
+        resizeWeight = 0.35
+        border = JBUI.Borders.empty()
+        isContinuousLayout = true
+    }
+
+    private fun createIssuesOverview(): JComponent = JBPanel<JBPanel<*>>(BorderLayout(0, 4)).apply {
+        border = BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(OVERVIEW_BORDER_COLOR, 1),
+            JBUI.Borders.empty(8),
+        )
+        add(JBScrollPane(overview.component), BorderLayout.CENTER)
+    }
+
+    private fun createEditor(): JComponent = JBPanel<JBPanel<*>>(BorderLayout(0, 4)).apply {
+        border = BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(EDITOR_BORDER_COLOR, 1),
+            JBUI.Borders.empty(8),
+        )
+        add(createEditorHeader(), BorderLayout.NORTH)
+        add(editor.component, BorderLayout.CENTER)
+    }
+
+    private fun createEditorHeader(): JComponent = JBPanel<JBPanel<*>>(BorderLayout()).apply {
+        add(JBLabel(MyBundle["editor.title"]), BorderLayout.WEST)
+        add(
+            JBPanel<JBPanel<*>>(FlowLayout(FlowLayout.RIGHT, 0, 0)).apply {
+                add(scaffoldButton.apply { addActionListener { scaffoldAi() } })
+            },
+            BorderLayout.EAST,
+        )
+    }
+
+    private fun createAiBar(): JComponent = JBPanel<JBPanel<*>>(BorderLayout(8, 0)).apply {
+        add(modelLabel, BorderLayout.CENTER)
+        add(
+            JBPanel<JBPanel<*>>(FlowLayout(FlowLayout.RIGHT, 8, 0)).apply {
+                add(JButton(MyBundle["save"]).apply {
+                    addActionListener { saveTodoFile() }
+                })
+                add(sendButton.apply { addActionListener { sendToAi() } })
+            },
+            BorderLayout.EAST,
+        )
+    }
+
+    private fun refreshIssues(showErrors: Boolean) {
+        refreshButton.isEnabled = false
+        issuesCombo.removeAllItems()
+        issuesCombo.addItem(MyBundle["issues.placeholder"])
+        overview.setMarkdown("*${MyBundle["issues.loading"]}*")
+
+        ApplicationManager.getApplication().executeOnPooledThread {
+            val result = runCatching { issueService.loadOpenIssues() }
+            ApplicationManager.getApplication().invokeLater {
+                refreshButton.isEnabled = true
+                result.onSuccess { tickets ->
+                    issuesCombo.removeAllItems()
+                    if (tickets.isEmpty()) {
+                        issuesCombo.addItem(MyBundle["issues.none"])
+                        overview.setMarkdown("*${MyBundle["issues.none"]}*")
+                    } else {
+                        tickets.forEach { issuesCombo.addItem(it) }
+                        issuesCombo.selectedIndex = 0
+                    }
+                }.onFailure { error ->
+                    issuesCombo.removeAllItems()
+                    issuesCombo.addItem(MyBundle["issues.placeholder"])
+                    val message = error.message.orEmpty()
+                    overview.setMarkdown("*${MyBundle["issues.error.message", message]}*")
+                    if (showErrors) {
+                        Messages.showErrorDialog(project, message, MyBundle["issues.error.title"])
+                    }
+                }
+            }
+        }
+    }
+
+    private fun showSelectedIssue() {
+        val ticket = issuesCombo.selectedItem as? Ticket
+        overview.setMarkdown(
+            if (ticket == null) "*${MyBundle["issuesOverview.placeholder"]}*" else formatTicket(ticket),
+        )
+    }
+
+    private fun formatTicket(ticket: Ticket): String = buildString {
+        appendLine("# ${MyBundle["overview.title", ticket.number, ticket.title]}")
+        appendLine()
+        appendLine("**${MyBundle["overview.state", ticket.state]}**")
+        if (ticket.labels.isNotEmpty()) {
+            appendLine()
+            appendLine(MyBundle["overview.labels", ticket.labels.joinToString(", ")])
+        }
+        if (ticket.htmlUrl.isNotBlank()) {
+            appendLine()
+            appendLine("[${MyBundle["overview.url"]}](${ticket.htmlUrl})")
+        }
+        if (ticket.body.isNotBlank()) {
+            appendLine()
+            appendLine("---")
+            appendLine()
+            append(ticket.body)
+        }
+    }
+
+    private fun scaffoldAi() {
+        val ticket = issuesCombo.selectedItem as? Ticket
+        if (ticket == null) {
+            Messages.showErrorDialog(project, MyBundle["scaffold.error.noIssue"], MyBundle["scaffold.error.title"])
+            return
+        }
+        scaffoldButton.isEnabled = false
+        editor.setMarkdown("*${MyBundle["scaffold.progress"]}*")
+
+        ApplicationManager.getApplication().executeOnPooledThread {
+            val result = runCatching { AiService.scaffold(project, ticket) }
+            ApplicationManager.getApplication().invokeLater {
+                scaffoldButton.isEnabled = true
+                result.onSuccess { markdown ->
+                    editor.setMarkdown(markdown)
+                }.onFailure { error ->
+                    Messages.showErrorDialog(
+                        project,
+                        error.message.orEmpty(),
+                        MyBundle["scaffold.error.title"],
+                    )
+                }
+            }
+        }
+    }
+
+    private fun saveTodoFile() {
+        val basePath = project.basePath
+        if (basePath == null) {
+            Messages.showErrorDialog(project, MyBundle["save.error.message"], MyBundle["save.error.title"])
+            return
+        }
+        val target = Path.of(basePath.replace('/', '\\'), TODO_FILE_NAME)
+        try {
+            Files.writeString(target, editor.getMarkdown())
+            LocalFileSystem.getInstance().refreshAndFindFileByNioFile(target)
+            Messages.showInfoMessage(project, MyBundle["save.success.message", TODO_FILE_NAME], MyBundle["save.success.title"])
+        } catch (e: Exception) {
+            Messages.showErrorDialog(
+                project,
+                MyBundle["save.error.io", e.message.orEmpty()],
+                MyBundle["save.error.title"],
+            )
+        }
+    }
+
+    private fun sendToAi() {
+        val ticket = issuesCombo.selectedItem as? Ticket
+        if (ticket == null) {
+            Messages.showErrorDialog(project, MyBundle["send.error.noIssue"], MyBundle["send.error.title"])
+            return
+        }
+        val markdown = editor.getMarkdown()
+        if (markdown.isBlank()) {
+            Messages.showErrorDialog(project, MyBundle["send.error.noContent"], MyBundle["send.error.title"])
+            return
+        }
+        sendButton.isEnabled = false
+        editor.setMarkdown("*${MyBundle["send.progress"]}*")
+
+        ApplicationManager.getApplication().executeOnPooledThread {
+            val result = runCatching { AiService.respond(ticket, markdown) }
+            ApplicationManager.getApplication().invokeLater {
+                sendButton.isEnabled = true
+                result.onSuccess { response ->
+                    editor.setMarkdown(
+                        markdown.trimEnd() +
+                            "\n\n---\n\n## " + MyBundle["send.responseHeading"] + "\n\n" + response.trim(),
+                    )
+                }.onFailure { error ->
+                    editor.setMarkdown(markdown)
+                    Messages.showErrorDialog(
+                        project,
+                        error.message.orEmpty(),
+                        MyBundle["send.error.title"],
+                    )
+                }
+            }
+        }
+    }
+
+    override fun dispose() {
+        editor.dispose()
+    }
+}

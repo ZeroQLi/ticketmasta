@@ -1,45 +1,60 @@
 # ticketmasta
 
 ![Build](https://github.com/ZeroQLi/ticketmasta/workflows/Build/badge.svg)
-[![Version](https://img.shields.io/jetbrains/plugin/v/MARKETPLACE_ID.svg)](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID)
-[![Downloads](https://img.shields.io/jetbrains/plugin/d/MARKETPLACE_ID.svg)](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID)
 
-## Template ToDo list
-- [x] Create a new [IntelliJ Platform Plugin Template][template] project.
-- [ ] Get familiar with the [template documentation][template].
-- [ ] Adjust the [group](./gradle.properties), as well as the [id](./src/main/resources/META-INF/plugin.xml), [name](./src/main/resources/META-INF/plugin.xml), and [sources package](./src/main/kotlin).
-- [ ] Adjust the plugin [description](./src/main/resources/META-INF/plugin.xml) (see [Tips][docs:plugin-description]) and this README to describe what your plugin does.
-- [ ] Review the [Legal Agreements](https://plugins.jetbrains.com/docs/marketplace/legal-agreements.html?from=IJPluginTemplate).
-- [ ] [Publish a plugin manually](https://plugins.jetbrains.com/docs/intellij/publishing-plugin.html?from=IJPluginTemplate) for the first time.
-- [ ] Set the `MARKETPLACE_ID` in the above README badges. You can obtain it once the plugin is published to JetBrains Marketplace.
-- [ ] Set the [Plugin Signing](https://plugins.jetbrains.com/docs/intellij/plugin-signing.html?from=IJPluginTemplate) related [secrets](https://github.com/JetBrains/intellij-platform-plugin-template#environment-variables).
-- [ ] Set the [Deployment Token](https://plugins.jetbrains.com/docs/marketplace/plugin-upload.html?from=IJPluginTemplate).
-- [ ] Click the <kbd>Watch</kbd> button on the top of the [IntelliJ Platform Plugin Template][template] to be notified about releases containing new features and fixes.
+**ticketmasta** is an IntelliJ Platform plugin that lets you work on your repository's GitHub
+issues without leaving the IDE.
 
-This Fancy IntelliJ Platform Plugin is going to be your implementation of the brilliant ideas that you have.
+## Features
+
+- **GitHub issues panel** — lists the open issues of your repository in a right-side tool window,
+  including private repositories (authenticated with a personal access token). Repository name
+  can be set explicitly or auto-detected from the project's `.git/config`.
+- **Markdown issue overview** — the selected issue renders as compact, theme-aware Markdown with
+  a link back to GitHub.
+- **Vditor editor** — an embedded Markdown editor for your working notes.
+- **Scaffold AI** — diagnoses the selected issue against a digest of your codebase and drafts a
+  `TODO.md` with an actionable task list.
+- **Send to AI** — forwards your draft to the AI for feedback; the reply is appended below your
+  note so the original stays intact.
+- **Save** — writes the editor content to `TODO.md` in the project root.
 
 ## Installation
 
-- Using the IDE built-in plugin system:
+- From JetBrains Marketplace:
 
-  <kbd>Settings/Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>Marketplace</kbd> > <kbd>Search for "ticketmasta"</kbd> >
-  <kbd>Install</kbd>
+  <kbd>Settings/Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>Marketplace</kbd> > <kbd>Search for "ticketmasta"</kbd> > <kbd>Install</kbd>
 
-- Using JetBrains Marketplace:
+- From disk:
 
-  Go to [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID) and install it by clicking the <kbd>Install to ...</kbd> button in case your IDE is running.
-
-  You can also download the [latest release](https://plugins.jetbrains.com/plugin/MARKETPLACE_ID/versions) from JetBrains Marketplace and install it manually using
+  Download the latest release from [GitHub Releases](https://github.com/ZeroQLi/ticketmasta/releases/latest) and install it via
   <kbd>Settings/Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>⚙️</kbd> > <kbd>Install plugin from disk...</kbd>
 
-- Manually:
+## Configuration
 
-  Download the [latest release](https://github.com/ZeroQLi/ticketmasta/releases/latest) and install it manually using
-  <kbd>Settings/Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>⚙️</kbd> > <kbd>Install plugin from disk...</kbd>
+Open <kbd>Settings/Preferences</kbd> > <kbd>Tools</kbd> > <kbd>TicketMasta</kbd>:
 
+| Setting | Description |
+| --- | --- |
+| GitHub repository | `owner/repo`, or leave empty to auto-detect from the project's git config |
+| GitHub token | Personal access token (stored in the IDE PasswordSafe); needs `repo` scope for private repositories |
+| AI provider | `openai` or `openrouter` |
+| AI base URL | Auto-filled from the provider (`https://api.openai.com/v1` / `https://openrouter.ai/api/v1`) |
+| AI API key | Key for the chosen provider |
+| AI model | Model identifier for the chosen provider |
+
+Use **Test connection** to verify the repository and token before you start.
+
+## Development
+
+Run the plugin in a development sandbox:
+
+```shell
+./gradlew runIde
+```
 
 ---
+
 Plugin based on the [IntelliJ Platform Plugin Template][template].
 
 [template]: https://github.com/JetBrains/intellij-platform-plugin-template
-[docs:plugin-description]: https://plugins.jetbrains.com/docs/intellij/plugin-user-experience.html#plugin-description-and-presentation
