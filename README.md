@@ -5,6 +5,7 @@
 **ticketmasta** is an IntelliJ Platform plugin that lets you work on your repository's GitHub
 issues without leaving the IDE.
 
+![extension screenshot](images/tweet.png)
 ## Features
 
 - **GitHub issues panel** — lists the open issues of your repository in a right-side tool window,
