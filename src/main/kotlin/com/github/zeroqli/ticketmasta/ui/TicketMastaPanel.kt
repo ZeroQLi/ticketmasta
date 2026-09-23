@@ -5,7 +5,6 @@ import com.github.zeroqli.ticketmasta.model.Ticket
 import com.github.zeroqli.ticketmasta.services.AgentLauncher
 import com.github.zeroqli.ticketmasta.services.AiService
 import com.github.zeroqli.ticketmasta.services.IssueService
-import com.github.zeroqli.ticketmasta.services.normalizeBasePath
 import com.github.zeroqli.ticketmasta.settings.TicketMastaSettings
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
@@ -22,6 +21,7 @@ import com.intellij.util.ui.JBUI
 import java.awt.BorderLayout
 import java.awt.FlowLayout
 import java.nio.file.Files
+import java.nio.file.Path
 import javax.swing.BorderFactory
 import javax.swing.JButton
 import javax.swing.JComponent
@@ -213,7 +213,7 @@ class TicketMastaPanel(private val project: Project) : Disposable {
             Messages.showErrorDialog(project, MyBundle["save.error.message"], MyBundle["save.error.title"])
             return false
         }
-        val target = normalizeBasePath(basePath).resolve(TODO_FILE_NAME)
+        val target = Path.of(basePath, TODO_FILE_NAME)
         return try {
             Files.writeString(target, markdown)
             LocalFileSystem.getInstance().refreshAndFindFileByNioFile(target)
