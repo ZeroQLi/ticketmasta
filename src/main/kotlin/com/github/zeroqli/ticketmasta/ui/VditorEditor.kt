@@ -3,6 +3,7 @@ package com.github.zeroqli.ticketmasta.ui
 import com.github.zeroqli.ticketmasta.MyBundle
 import com.google.gson.Gson
 import com.intellij.openapi.Disposable
+import javax.swing.UIManager
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.components.JBTextArea
 import com.intellij.ui.jcef.JBCefApp
@@ -53,6 +54,8 @@ class VditorEditor : Disposable {
 
     private fun buildHtml(jsQuery: JBCefJSQuery): String {
         val callJava = jsQuery.inject("value")
+        val uiFont = UIManager.getFont("Label.font")
+        val uiFontFamily = uiFont.family
         return """
             <!DOCTYPE html>
             <html>
@@ -60,7 +63,7 @@ class VditorEditor : Disposable {
             <meta charset="utf-8"/>
             <link rel="stylesheet" href="$VDITOR_CDN/dist/index.css"/>
             <style>
-              html, body { margin: 0; padding: 0; height: 100%; background: transparent; }
+              html, body { margin: 0; padding: 0; height: 100%; background: transparent; font-family: '$uiFontFamily', sans-serif; }
               #editor { height: 100%; }
             </style>
             </head>

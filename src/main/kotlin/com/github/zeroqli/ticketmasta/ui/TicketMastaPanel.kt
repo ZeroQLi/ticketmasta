@@ -13,7 +13,6 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.vfs.LocalFileSystem
-import com.intellij.ui.JBColor
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBPanel
 import com.intellij.ui.components.JBScrollPane
@@ -22,25 +21,23 @@ import java.awt.BorderLayout
 import java.awt.FlowLayout
 import java.nio.file.Files
 import java.nio.file.Path
-import javax.swing.BorderFactory
 import javax.swing.JButton
 import javax.swing.JComponent
 import javax.swing.JSplitPane
 
-private val OVERVIEW_BORDER_COLOR = JBColor(0xC0392B, 0xE06C75)
-private val EDITOR_BORDER_COLOR = JBColor(0x2F6FD0, 0x6EB0FF)
 private const val TODO_FILE_NAME = "TODO.md"
 
+/** Right-side tool window: browse GitHub issues, then draft and hand off a `TODO.md` for them. */
 class TicketMastaPanel(private val project: Project) : Disposable {
 
-    private val editor = VditorEditor()
     private val issueService = project.service<IssueService>()
+    private val editor = VditorEditor()
+    private val overview = MarkdownPreview()
 
     private val issuesCombo = ComboBox<Any>()
     private val refreshButton = JButton(MyBundle["refresh"])
     private val scaffoldButton = JButton(MyBundle["scaffoldAi"])
     private val sendButton = JButton(MyBundle["sendToAi"])
-    private val overview = MarkdownPreview()
 
     init {
         issuesCombo.addItem(MyBundle["issues.placeholder"])
@@ -51,61 +48,45 @@ class TicketMastaPanel(private val project: Project) : Disposable {
 
     fun getContent(): JComponent = JBPanel<JBPanel<*>>(BorderLayout(0, 8)).apply {
         border = JBUI.Borders.empty(8)
-
-        add(createIssuesBar(), BorderLayout.NORTH)
-        add(createCenter(), BorderLayout.CENTER)
-        add(createAiBar(), BorderLayout.SOUTH)
+        add(issuesBar(), BorderLayout.NORTH)
+        add(centerSplit(), BorderLayout.CENTER)
+        add(actionBar(), BorderLayout.SOUTH)
     }
 
-    private fun createIssuesBar(): JComponent = JBPanel<JBPanel<*>>(BorderLayout(8, 0)).apply {
+    private fun issuesBar(): JComponent = JBPanel<JBPanel<*>>(BorderLayout(8, 0)).apply {
         add(JBLabel(MyBundle["issues.label"]), BorderLayout.WEST)
         add(issuesCombo, BorderLayout.CENTER)
         add(refreshButton, BorderLayout.EAST)
     }
 
-    private fun createCenter(): JComponent = JSplitPane(
+    private fun centerSplit(): JComponent = JSplitPane(
         JSplitPane.VERTICAL_SPLIT,
-        createIssuesOverview(),
-        createEditor(),
+        section(JBScrollPane(overview.component)),
+        section(editorHeader(), editor.component),
     ).apply {
         resizeWeight = 0.35
         border = JBUI.Borders.empty()
         isContinuousLayout = true
     }
 
-    private fun createIssuesOverview(): JComponent = JBPanel<JBPanel<*>>(BorderLayout(0, 4)).apply {
-        border = BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(OVERVIEW_BORDER_COLOR, 1),
-            JBUI.Borders.empty(8),
-        )
-        add(JBScrollPane(overview.component), BorderLayout.CENTER)
-    }
+    private fun section(content: JComponent): JComponent =
+        JBPanel<JBPanel<*>>(BorderLayout()).apply { add(content, BorderLayout.CENTER) }
 
-    private fun createEditor(): JComponent = JBPanel<JBPanel<*>>(BorderLayout(0, 4)).apply {
-        border = BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(EDITOR_BORDER_COLOR, 1),
-            JBUI.Borders.empty(8),
-        )
-        add(createEditorHeader(), BorderLayout.NORTH)
-        add(editor.component, BorderLayout.CENTER)
-    }
+    private fun section(header: JComponent, content: JComponent): JComponent =
+        JBPanel<JBPanel<*>>(BorderLayout(0, 4)).apply {
+            add(header, BorderLayout.NORTH)
+            add(content, BorderLayout.CENTER)
+        }
 
-    private fun createEditorHeader(): JComponent = JBPanel<JBPanel<*>>(BorderLayout()).apply {
+    private fun editorHeader(): JComponent = JBPanel<JBPanel<*>>(BorderLayout()).apply {
         add(JBLabel(MyBundle["editor.title"]), BorderLayout.WEST)
-        add(
-            JBPanel<JBPanel<*>>(FlowLayout(FlowLayout.RIGHT, 0, 0)).apply {
-                add(scaffoldButton.apply { addActionListener { scaffoldAi() } })
-            },
-            BorderLayout.EAST,
-        )
+        add(scaffoldButton.apply { addActionListener { scaffoldAi() } }, BorderLayout.EAST)
     }
 
-    private fun createAiBar(): JComponent = JBPanel<JBPanel<*>>(BorderLayout(8, 0)).apply {
+    private fun actionBar(): JComponent = JBPanel<JBPanel<*>>(BorderLayout()).apply {
         add(
             JBPanel<JBPanel<*>>(FlowLayout(FlowLayout.RIGHT, 8, 0)).apply {
-                add(JButton(MyBundle["save"]).apply {
-                    addActionListener { saveTodoFile() }
-                })
+                add(JButton(MyBundle["save"]).apply { addActionListener { saveTodoFile() } })
                 add(sendButton.apply { addActionListener { sendToAi() } })
             },
             BorderLayout.EAST,
@@ -187,11 +168,7 @@ class TicketMastaPanel(private val project: Project) : Disposable {
                 result.onSuccess { markdown ->
                     editor.setMarkdown(markdown)
                 }.onFailure { error ->
-                    Messages.showErrorDialog(
-                        project,
-                        error.message.orEmpty(),
-                        MyBundle["scaffold.error.title"],
-                    )
+                    Messages.showErrorDialog(project, error.message.orEmpty(), MyBundle["scaffold.error.title"])
                 }
             }
         }
@@ -252,11 +229,7 @@ class TicketMastaPanel(private val project: Project) : Disposable {
         try {
             AgentLauncher.launch(project, command, "#${ticket.number} ${ticket.title}")
         } catch (e: Exception) {
-            Messages.showErrorDialog(
-                project,
-                MyBundle["send.error.launch", e.message.orEmpty()],
-                MyBundle["send.error.title"],
-            )
+            Messages.showErrorDialog(project, MyBundle["send.error.launch", e.message.orEmpty()], MyBundle["send.error.title"])
         }
     }
 
